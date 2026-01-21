@@ -13,10 +13,14 @@ interface EmergencyAlertProps {
   className?: string;
 }
 
+const COUNTDOWN_SECONDS = 10;
+
 const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: EmergencyAlertProps) => {
   const [email, setEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
+  const [isPaused, setIsPaused] = useState(false);
   
   // EmailJS settings (free tier - 200 emails/month)
   const [serviceId, setServiceId] = useState(() => localStorage.getItem("emailjs_service_id") || "");
@@ -29,6 +33,40 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
       setEmail(userEmail);
     }
   }, [userEmail]);
+
+  // Countdown timer for auto-send
+  useEffect(() => {
+    if (!isActive || showSettings || isPaused || isSending) {
+      return;
+    }
+
+    if (countdown <= 0) {
+      handleSendEmail();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCountdown((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [isActive, countdown, showSettings, isPaused, isSending]);
+
+  // Reset countdown when modal opens
+  useEffect(() => {
+    if (isActive) {
+      setCountdown(COUNTDOWN_SECONDS);
+      setIsPaused(false);
+    }
+  }, [isActive]);
+
+  const pauseCountdown = () => {
+    setIsPaused(true);
+  };
+
+  const resumeCountdown = () => {
+    setIsPaused(false);
+  };
 
   const saveSettings = () => {
     localStorage.setItem("emailjs_service_id", serviceId);
@@ -185,9 +223,40 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
             <h2 className="font-display text-2xl font-bold text-center text-destructive mb-2">
               EMERGENCY ALERT
             </h2>
-            <p className="text-center text-muted-foreground mb-6">
-              5 blinks detected. Send an emergency notification?
+            <p className="text-center text-muted-foreground mb-4">
+              5 blinks detected. Sending alert in:
             </p>
+
+            {/* Countdown Timer */}
+            <div className="flex justify-center mb-4">
+              <div className="relative w-20 h-20 flex items-center justify-center">
+                <svg className="absolute inset-0 w-full h-full -rotate-90">
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r="36"
+                    fill="none"
+                    stroke="hsl(var(--muted))"
+                    strokeWidth="4"
+                  />
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r="36"
+                    fill="none"
+                    stroke="hsl(var(--destructive))"
+                    strokeWidth="4"
+                    strokeDasharray={2 * Math.PI * 36}
+                    strokeDashoffset={2 * Math.PI * 36 * (1 - countdown / COUNTDOWN_SECONDS)}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000"
+                  />
+                </svg>
+                <span className="text-2xl font-bold text-destructive">
+                  {isPaused ? "⏸" : countdown}
+                </span>
+              </div>
+            </div>
 
             {/* Email input */}
             <div className="space-y-4">
@@ -198,6 +267,7 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
                   placeholder="Enter emergency contact email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onFocus={pauseCountdown}
                   className="pl-10 bg-secondary border-destructive/30 focus:border-destructive"
                 />
               </div>
@@ -208,22 +278,32 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
                 </p>
               )}
 
-              <Button
-                onClick={handleSendEmail}
-                disabled={isSending}
-                variant="danger"
-                className="w-full"
-                size="lg"
-              >
-                {isSending ? (
-                  "Sending..."
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Send Emergency Alert
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={isPaused ? resumeCountdown : pauseCountdown}
+                  variant="outline"
+                  className="flex-1"
+                  size="lg"
+                >
+                  {isPaused ? "Resume" : "Pause"}
+                </Button>
+                <Button
+                  onClick={handleSendEmail}
+                  disabled={isSending}
+                  variant="danger"
+                  className="flex-1"
+                  size="lg"
+                >
+                  {isSending ? (
+                    "Sending..."
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Send Now
+                    </>
+                  )}
+                </Button>
+              </div>
 
               {!serviceId && (
                 <p className="text-xs text-center text-muted-foreground">
@@ -234,9 +314,9 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
               <Button
                 onClick={onDismiss}
                 variant="outline"
-                className="w-full"
+                className="w-full border-destructive/50 hover:bg-destructive/10"
               >
-                Dismiss Alert
+                Cancel Alert
               </Button>
             </div>
           </>
