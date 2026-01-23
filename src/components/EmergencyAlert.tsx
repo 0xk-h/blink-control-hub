@@ -13,19 +13,19 @@ interface EmergencyAlertProps {
   className?: string;
 }
 
-const COUNTDOWN_SECONDS = 10;
-
 const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: EmergencyAlertProps) => {
   const [email, setEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
-  const [isPaused, setIsPaused] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   
   // EmailJS settings (free tier - 200 emails/month)
   const [serviceId, setServiceId] = useState(() => localStorage.getItem("emailjs_service_id") || "");
   const [templateId, setTemplateId] = useState(() => localStorage.getItem("emailjs_template_id") || "");
   const [publicKey, setPublicKey] = useState(() => localStorage.getItem("emailjs_public_key") || "");
+
+  // Ref to hold the latest handleSendEmail function
+  const handleSendEmailRef = useRef<() => void>(() => {});
 
   // Auto-fill with user's email when logged in
   useEffect(() => {
@@ -34,56 +34,30 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
     }
   }, [userEmail]);
 
-  // Track if we should auto-send (when countdown reaches 0)
-  const [shouldAutoSend, setShouldAutoSend] = useState(false);
-
-  // Ref to hold the latest handleSendEmail function
-  const handleSendEmailRef = useRef<() => void>(() => {});
-
-  // Countdown timer logic
+  // Send email immediately when alert becomes active
   useEffect(() => {
-    if (!isActive || showSettings || isPaused || isSending) {
-      return;
-    }
-
-    if (countdown <= 0) {
-      setShouldAutoSend(true);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setCountdown((prev) => prev - 1);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [isActive, countdown, showSettings, isPaused, isSending]);
-
-  // Handle auto-send when countdown completes
-  useEffect(() => {
-    if (shouldAutoSend && !isSending) {
-      setShouldAutoSend(false);
+    if (isActive && !emailSent && !isSending && email) {
       handleSendEmailRef.current();
     }
-  }, [shouldAutoSend, isSending]);
+  }, [isActive, emailSent, isSending, email]);
 
-  // Reset countdown when modal opens
+  // Reset state when modal opens
   useEffect(() => {
     if (isActive) {
-      setCountdown(COUNTDOWN_SECONDS);
-      setIsPaused(false);
-      setShouldAutoSend(false);
+      setEmailSent(false);
     }
   }, [isActive]);
 
-  const pauseCountdown = () => {
-    setIsPaused(true);
-  };
-
-  const resumeCountdown = () => {
-    setIsPaused(false);
-  };
-
   const saveSettings = () => {
+    localStorage.setItem("emailjs_service_id", serviceId);
+    localStorage.setItem("emailjs_template_id", templateId);
+    localStorage.setItem("emailjs_public_key", publicKey);
+    toast({
+      title: "Settings Saved",
+      description: "EmailJS settings have been saved locally",
+    });
+    setShowSettings(false);
+  };
     localStorage.setItem("emailjs_service_id", serviceId);
     localStorage.setItem("emailjs_template_id", templateId);
     localStorage.setItem("emailjs_public_key", publicKey);
@@ -138,7 +112,7 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
         title: "Emergency Email Sent!",
         description: `Alert sent to ${email}`,
       });
-      onDismiss();
+      setEmailSent(true);
     } catch (error) {
       console.error("EmailJS error:", error);
       toast({
@@ -149,7 +123,7 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
     } finally {
       setIsSending(false);
     }
-  }, [email, serviceId, templateId, publicKey, onDismiss]);
+  }, [email, serviceId, templateId, publicKey]);
 
   // Keep the ref updated with latest handleSendEmail
   useEffect(() => {
@@ -244,39 +218,8 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
               EMERGENCY ALERT
             </h2>
             <p className="text-center text-muted-foreground mb-4">
-              5 blinks detected. Sending alert in:
+              {isSending ? "Sending emergency email..." : emailSent ? "Email sent!" : "5 blinks detected - Sending alert..."}
             </p>
-
-            {/* Countdown Timer */}
-            <div className="flex justify-center mb-4">
-              <div className="relative w-20 h-20 flex items-center justify-center">
-                <svg className="absolute inset-0 w-full h-full -rotate-90">
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="36"
-                    fill="none"
-                    stroke="hsl(var(--muted))"
-                    strokeWidth="4"
-                  />
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="36"
-                    fill="none"
-                    stroke="hsl(var(--destructive))"
-                    strokeWidth="4"
-                    strokeDasharray={2 * Math.PI * 36}
-                    strokeDashoffset={2 * Math.PI * 36 * (1 - countdown / COUNTDOWN_SECONDS)}
-                    strokeLinecap="round"
-                    className="transition-all duration-1000"
-                  />
-                </svg>
-                <span className="text-2xl font-bold text-destructive">
-                  {isPaused ? "⏸" : countdown}
-                </span>
-              </div>
-            </div>
 
             {/* Email input */}
             <div className="space-y-4">
@@ -287,8 +230,8 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
                   placeholder="Enter emergency contact email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  onFocus={pauseCountdown}
                   className="pl-10 bg-secondary border-destructive/30 focus:border-destructive"
+                  disabled={isSending}
                 />
               </div>
 
@@ -298,32 +241,22 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
                 </p>
               )}
 
-              <div className="flex gap-2">
-                <Button
-                  onClick={isPaused ? resumeCountdown : pauseCountdown}
-                  variant="outline"
-                  className="flex-1"
-                  size="lg"
-                >
-                  {isPaused ? "Resume" : "Pause"}
-                </Button>
-                <Button
-                  onClick={handleSendEmail}
-                  disabled={isSending}
-                  variant="danger"
-                  className="flex-1"
-                  size="lg"
-                >
-                  {isSending ? (
-                    "Sending..."
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Send Now
-                    </>
-                  )}
-                </Button>
-              </div>
+              <Button
+                onClick={handleSendEmail}
+                disabled={isSending}
+                variant="danger"
+                className="w-full"
+                size="lg"
+              >
+                {isSending ? (
+                  "Sending..."
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    {emailSent ? "Resend Email" : "Send Now"}
+                  </>
+                )}
+              </Button>
 
               {!serviceId && (
                 <p className="text-xs text-center text-muted-foreground">
@@ -336,7 +269,7 @@ const EmergencyAlert = ({ isActive, onDismiss, userEmail, className }: Emergency
                 variant="outline"
                 className="w-full border-destructive/50 hover:bg-destructive/10"
               >
-                Cancel Alert
+                {emailSent ? "Close" : "Cancel Alert"}
               </Button>
             </div>
           </>
