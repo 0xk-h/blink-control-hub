@@ -57,12 +57,20 @@ export const useAuth = () => {
   };
 
   const resetPassword = async (email: string) => {
-    const redirectUrl = `${window.location.origin}/reset-password`;
-    
+    // Use OTP type for email-based verification
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: redirectUrl,
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     return { error };
+  };
+
+  const verifyOtp = async (email: string, token: string) => {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'recovery',
+    });
+    return { data, error };
   };
 
   const updatePassword = async (newPassword: string) => {
@@ -80,6 +88,7 @@ export const useAuth = () => {
     signIn,
     signOut,
     resetPassword,
+    verifyOtp,
     updatePassword,
   };
 };
