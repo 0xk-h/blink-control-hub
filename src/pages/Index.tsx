@@ -5,6 +5,7 @@ import WebcamFeed, { WebcamFeedRef } from "@/components/WebcamFeed";
 import BlinkCounter from "@/components/BlinkCounter";
 import ApplianceDashboard from "@/components/ApplianceDashboard";
 import EmergencyAlert from "@/components/EmergencyAlert";
+import VoiceMessageModal from "@/components/VoiceMessageModal";
 import HistoryLog, { HistoryEvent } from "@/components/HistoryLog";
 import { useBlinkDetection } from "@/hooks/useBlinkDetection";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,6 +21,7 @@ const Index = () => {
   const [lightOn, setLightOn] = useState(false);
   const [fanOn, setFanOn] = useState(false);
   const [emergencyActive, setEmergencyActive] = useState(false);
+  const [voiceMessageActive, setVoiceMessageActive] = useState(false);
   const [sequenceCount, setSequenceCount] = useState(0);
   const [historyEvents, setHistoryEvents] = useState<HistoryEvent[]>([]);
 
@@ -88,6 +90,14 @@ const Index = () => {
           title: "Emergency Alert!",
           description: "5 blinks detected - Emergency mode activated",
           variant: "destructive",
+        });
+        break;
+      case 6:
+        setVoiceMessageActive(true);
+        addHistoryEvent("voice_message");
+        toast({
+          title: "Voice Message",
+          description: "6 blinks detected - Recording voice message",
         });
         break;
       default:
@@ -170,6 +180,10 @@ const Index = () => {
 
   const dismissEmergency = useCallback(() => {
     setEmergencyActive(false);
+  }, []);
+
+  const dismissVoiceMessage = useCallback(() => {
+    setVoiceMessageActive(false);
   }, []);
 
   const handleSignOut = async () => {
@@ -357,10 +371,17 @@ const Index = () => {
         </div>
       </main>
 
-      {/* Emergency Alert Modal - now with user email */}
+      {/* Emergency Alert Modal */}
       <EmergencyAlert 
         isActive={emergencyActive} 
         onDismiss={dismissEmergency}
+        userEmail={user?.email}
+      />
+
+      {/* Voice Message Modal */}
+      <VoiceMessageModal
+        isActive={voiceMessageActive}
+        onDismiss={dismissVoiceMessage}
         userEmail={user?.email}
       />
     </div>
