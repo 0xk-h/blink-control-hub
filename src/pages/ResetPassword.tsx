@@ -15,11 +15,13 @@ const ResetPassword = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   
-  const { session, updatePassword } = useAuth();
+  const { session, loading, updatePassword } = useAuth();
   const navigate = useNavigate();
 
-  // Check if user has a valid recovery session
+  // Wait for auth to load, then check if user has a valid recovery session
   useEffect(() => {
+    if (loading) return; // Wait for auth state to load
+    
     if (!session) {
       // No session means user didn't come from a valid reset link
       toast({
@@ -29,7 +31,7 @@ const ResetPassword = () => {
       });
       navigate('/auth');
     }
-  }, [session, navigate]);
+  }, [session, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +78,15 @@ const ResetPassword = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (isSuccess) {
     return (
