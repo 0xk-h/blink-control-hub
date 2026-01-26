@@ -1,10 +1,10 @@
 import { cn } from "@/lib/utils";
-import { Lightbulb, Fan, AlertTriangle, Clock } from "lucide-react";
+import { Lightbulb, Fan, AlertTriangle, Clock, Mic } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export interface HistoryEvent {
   id: string;
-  type: "light_on" | "light_off" | "fan_on" | "fan_off" | "emergency";
+  type: "light_on" | "light_off" | "fan_on" | "fan_off" | "emergency" | "voice_message";
   timestamp: Date;
 }
 
@@ -25,6 +25,8 @@ const getEventDetails = (type: HistoryEvent["type"]) => {
       return { icon: Fan, label: "Fan OFF", color: "text-muted-foreground", bg: "bg-muted/50" };
     case "emergency":
       return { icon: AlertTriangle, label: "Emergency Alert", color: "text-destructive", bg: "bg-destructive/10" };
+    case "voice_message":
+      return { icon: Mic, label: "Voice Message", color: "text-primary", bg: "bg-primary/10" };
   }
 };
 
